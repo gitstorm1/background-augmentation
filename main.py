@@ -22,77 +22,104 @@ def replace_background(input_path: str, background_path: str, output_path: str):
     input_image = Image.open(input_path).convert("RGBA")
     background = Image.open(background_path).convert("RGBA")
     
+    # Apply EXIF rotation correction to both images
     input_image = ImageOps.exif_transpose(input_image)
     background = ImageOps.exif_transpose(background)
 
     # Remove background using U²-Net
-    # The 'remove' function returns an Image with transparency (RGBA)
+    # 'foreground' will have the size of the corrected 'input_image'
     foreground = remove(input_image)
 
     # Resize background to match input image size
-    # This ensures the composite operation works correctly without cropping the background
     background = background.resize(input_image.size)
 
     # Composite foreground over new background
-    # background is the bottom layer, foreground is the top layer
     result = Image.alpha_composite(background, foreground)
     
+    # Convert to RGB before saving (as the new background removed transparency need)
     result = result.convert("RGB")
 
     # Save and return
     result.save(output_path)
     return result
 
-def process_single_image(filename: str, input_dir: str, background_dir: str, output_dir: str, background_files: list):
-    """Worker function to process a single image, suitable for a ProcessPoolExecutor."""
+def process_single_image(relative_path: str, input_dir: str, background_dir: str, output_dir: str, background_files: list):
+    """
+    Worker function to process a single image, now using a relative path 
+    to preserve directory structure.
+    """
     try:
-        # Construct paths
-        input_path = os.path.join(input_dir, filename)
+        # 1. Calculate Full Paths
+        input_path = os.path.join(input_dir, relative_path)
         
-        # Determine output path, forcing .png extension for safety
-        base_name = os.path.splitext(filename)[0]
+        # Determine the target output directory and ensure it exists
+        # relative_path includes the full subdirectory path, e.g., 'sub1/image.jpg'
+        output_dir_for_file = os.path.join(output_dir, os.path.dirname(relative_path))
+        os.makedirs(output_dir_for_file, exist_ok=True)
+        
+        # 2. Determine Output Path (with forced .png extension)
+        base_name = os.path.splitext(os.path.basename(relative_path))[0]
         output_filename = base_name + ".png"
-        output_path = os.path.join(output_dir, output_filename)
+        output_path = os.path.join(output_dir_for_file, output_filename)
 
-        # Select a random background
+        # 3. Select Random Background
         random_background_file = random.choice(background_files)
         background_path = os.path.join(background_dir, random_background_file)
 
-        print(f"🔄 Processing '{filename}' with background '{random_background_file}'...")
+        print(f"🔄 Processing '{relative_path}' with background '{random_background_file}'...")
 
-        # Run the core replacement function
+        # 4. Run Core Replacement
         replace_background(input_path, background_path, output_path)
 
-        return f"✅ Success: '{filename}'"
+        return f"✅ Success: '{relative_path}' -> '{os.path.relpath(output_path, output_dir)}'"
 
     except Exception as e:
-        return f"🛑 Failed to process '{filename}'. Error: {e}"
+        return f"🛑 Failed to process '{relative_path}'. Error: {e}"
 
 
 def process_images_in_parallel(input_dir: str, background_dir: str, output_dir: str):
-    """Orchestrates parallel image processing."""
+    """Orchestrates parallel image processing, recursively searching input_dir."""
     
     os.makedirs(output_dir, exist_ok=True)
 
-    # Get lists of files
+    # 1. Get list of all available backgrounds
     background_files = [f for f in os.listdir(background_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-    input_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
     
-    if not background_files or not input_files:
-        print("❌ Error: Check input and background directories.")
+    if not background_files:
+        print("❌ Error: No image files found in the background directory.")
+        return
+        
+    # 2. Recursively find all input image paths
+    # We store paths relative to input_dir to recreate the structure later
+    relative_input_paths = []
+    IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+    
+    # os.walk traverses the input directory and its subdirectories
+    for root, _, files in os.walk(input_dir):
+        for filename in files:
+            if filename.lower().endswith(IMAGE_EXTENSIONS):
+                # Calculate the path relative to the input_dir
+                full_path = os.path.join(root, filename)
+                relative_path = os.path.relpath(full_path, input_dir)
+                relative_input_paths.append(relative_path)
+                
+    if not relative_input_paths:
+        print("❌ Error: No image files found in the input directory or its subdirectories.")
         return
 
-    # Use a ProcessPoolExecutor to distribute work across CPU cores
-    # max_workers=None uses the number of cores on the machine
-    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
+    # 3. Parallel Execution Setup
+    # Use a cautious number of workers to prevent system hang
+    SAFE_WORKERS = 4 
+    print(f"Starting execution with {SAFE_WORKERS} worker processes...")
+    
+    with concurrent.futures.ProcessPoolExecutor(max_workers=SAFE_WORKERS) as executor:
         
-        # Prepare arguments for the worker function
         futures = []
-        for filename in input_files:
-            # Submitting the task to the pool
+        for relative_path in relative_input_paths:
+            # Submitting the relative path, which holds the directory structure information
             future = executor.submit(
                 process_single_image,
-                filename,
+                relative_path, # Path including subdirectories, e.g., 'sub/img.jpg'
                 input_dir,
                 background_dir,
                 output_dir,
@@ -100,9 +127,10 @@ def process_images_in_parallel(input_dir: str, background_dir: str, output_dir: 
             )
             futures.append(future)
 
-        # Collect results as they complete (in the order they complete)
+        # Collect results as they complete
         for future in concurrent.futures.as_completed(futures):
             print(future.result())
+
 
 # --- Main Execution Block ---
 
