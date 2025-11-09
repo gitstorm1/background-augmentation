@@ -8,9 +8,7 @@ RESIZED_FOLDER_NAME = "resized_backgrounds"
 
 def resize_image_to_min_350(input_path: str, output_path: str):
     """
-    Resizes an image so that its *smallest* dimension is exactly MIN_DIMENSION (350), 
-    *only* if that smallest dimension is currently LARGER than MIN_DIMENSION.
-    This effectively scales down large images to reduce memory consumption.
+    Resizes an image so that its *smallest* dimension is exactly MIN_DIMENSION (350).
     """
     try:
         with Image.open(input_path) as img:
@@ -31,21 +29,21 @@ def resize_image_to_min_350(input_path: str, output_path: str):
                     resized_img = resized_img.convert('RGB')
                     
                 resized_img.save(output_path, quality=90)
-                print(f"✅ Resized: {os.path.basename(input_path)} from ({width}x{height}) to ({new_width}x{new_height})")
+                print(f"Resized: {os.path.basename(input_path)} from ({width}x{height}) to ({new_width}x{new_height})")
 
             elif smallest_dim < MIN_DIMENSION:
                 # Images smaller than minimum are copied as-is (no upscaling to preserve quality)
                 img.save(output_path, quality=90)
-                print(f"⚠️ Copied (Too Small): {os.path.basename(input_path)} ({width}x{height})")
+                print(f"Copied (Too Small): {os.path.basename(input_path)} ({width}x{height})")
                 
             else:
                 # Images already at exact minimum dimension are copied without modification
                 img.save(output_path, quality=90)
-                print(f"✔️ Copied (Exact Fit): {os.path.basename(input_path)} ({width}x{height})")
+                print(f"Copied (Exact Fit): {os.path.basename(input_path)} ({width}x{height})")
 
 
     except Exception as e:
-        print(f"🛑 Failed to process {os.path.basename(input_path)}. Error: {e}")
+        print(f"Failed to process {os.path.basename(input_path)}. Error: {e}")
 
 def scan_and_resize_backgrounds(input_directory: str):
     """
@@ -79,7 +77,7 @@ def scan_and_resize_backgrounds(input_directory: str):
             
             resize_image_to_min_350(input_path, output_path)
             
-    print("\n✨ Batch resizing complete.")
+    print("\nBatch resizing complete.")
 
 
 if __name__ == "__main__":
@@ -88,7 +86,7 @@ if __name__ == "__main__":
     
     # Validate directory exists before attempting to process
     if not os.path.isdir(BACKGROUND_DIR_PATH):
-        print(f"❌ Error: Directory not found at path: {BACKGROUND_DIR_PATH}")
+        print(f"Error: Directory not found at path: {BACKGROUND_DIR_PATH}")
         print("Please set the 'BACKGROUND_DIR_PATH' variable to your correct background image folder.")
     else:
         scan_and_resize_backgrounds(BACKGROUND_DIR_PATH)

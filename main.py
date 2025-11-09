@@ -6,7 +6,7 @@ from PIL import Image, ImageOps
 
 def replace_background(input_path: str, background_path: str, output_path: str):
     """
-    Replace the background of an image using U²-Net (via rembg).
+    Replace the background of an image using U2-Net (via rembg).
 
     Args:
         input_path (str): Path to input image (with subject).
@@ -37,7 +37,7 @@ def replace_background(input_path: str, background_path: str, output_path: str):
 
 def process_single_image(relative_path: str, input_dir: str, background_dir: str, output_dir: str, background_files: list):
     """
-    Worker function to process a single image, now using a relative path 
+    Worker function to process a single image, using a relative path 
     to preserve directory structure.
     """
     try:
@@ -56,15 +56,15 @@ def process_single_image(relative_path: str, input_dir: str, background_dir: str
         random_background_file = random.choice(background_files)
         background_path = os.path.join(background_dir, random_background_file)
 
-        print(f"🔄 Processing '{relative_path}' with background '{random_background_file}'...")
+        print(f"Processing '{relative_path}' with background '{random_background_file}'...")
 
         # Perform the actual background replacement operation
         replace_background(input_path, background_path, output_path)
 
-        return f"✅ Success: '{relative_path}' -> '{os.path.relpath(output_path, output_dir)}'"
+        return f"Success: '{relative_path}' -> '{os.path.relpath(output_path, output_dir)}'"
 
     except Exception as e:
-        return f"🛑 Failed to process '{relative_path}'. Error: {e}"
+        return f"Failed to process '{relative_path}'. Error: {e}"
 
 
 def process_images_in_parallel(input_dir: str, background_dir: str, output_dir: str):
@@ -76,7 +76,7 @@ def process_images_in_parallel(input_dir: str, background_dir: str, output_dir: 
     background_files = [f for f in os.listdir(background_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
     
     if not background_files:
-        print("❌ Error: No image files found in the background directory.")
+        print("Error: No image files found in the background directory.")
         return
         
     # Recursively scan input directory and build list of relative paths to preserve structure
@@ -93,7 +93,7 @@ def process_images_in_parallel(input_dir: str, background_dir: str, output_dir: 
                 relative_input_paths.append(relative_path)
                 
     if not relative_input_paths:
-        print("❌ Error: No image files found in the input directory or its subdirectories.")
+        print("Error: No image files found in the input directory or its subdirectories.")
         return
 
     # Limit worker count to avoid overwhelming system resources
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     BACKGROUND_DIR = os.path.join(base_dir, "backgrounds")
     OUTPUT_DIR = os.path.join(base_dir, "outputs")
 
-    print("🖼️ Starting PARALLEL image background replacement process...")
+    print("Starting PARALLEL image background replacement process...")
     # Process all images with random background assignment
     process_images_in_parallel(INPUT_DIR, BACKGROUND_DIR, OUTPUT_DIR)
-    print("✨ Parallel image processing complete.")
+    print("Parallel image processing complete.")
